@@ -13,7 +13,9 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.ArrayAdapter;
+import android.widget.Button;
 import android.widget.ListView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -21,7 +23,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
-import com.example.movebetter3.R;
+import com.jjoe64.graphview.GraphView;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -30,9 +32,13 @@ import java.util.Set;
 import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
+    private final ArrayList<String> receivedDataList = new ArrayList<>();
+    double previousX = 0;
+
 
     private static final int REQUEST_BLUETOOTH_SCAN_PERMISSION = 2;
     private static final int REQUEST_BLUETOOTH_PERMISSION = 3;
+    private TextView receivedDataTextView;
 
     private static final String TAG = "MainActivity";
 
@@ -41,13 +47,26 @@ public class MainActivity extends AppCompatActivity {
     private ArrayAdapter<String> deviceListAdapter;
     private boolean isConnected = false;
     private String connectedDeviceName = "";
-
-    private ConnectThread connectThread;
-
+    private GraphDisplay graphDisplay;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        // Find the button and set its onClickListener
+        Button goToGoodLiftButton = findViewById(R.id.btn_go_to_good_lift);
+        goToGoodLiftButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // Create an Intent to navigate to the GoodLift activity
+                Intent intent = new Intent(MainActivity.this, GoodLift.class);
+                startActivity(intent);
+            }
+        });
+
+        receivedDataTextView = findViewById(R.id.receivedDataTextView);
+        GraphView graphView = findViewById(R.id.graphView);
+        graphDisplay = new GraphDisplay(this, graphView);
 
         ListView listViewDevices = findViewById(R.id.listViewDevices);
         deviceListAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, deviceList);
@@ -84,7 +103,7 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         if (device != null) {
-            connectThread = new ConnectThread(device);
+            ConnectThread connectThread = new ConnectThread(device);
             connectThread.start();
         } else {
             Toast.makeText(this, "Device not found", Toast.LENGTH_SHORT).show();
@@ -93,12 +112,20 @@ public class MainActivity extends AppCompatActivity {
 
     private void stopDeviceDiscovery() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+            // TODO: Consider calling
+            //    ActivityCompat#requestPermissions
+            // here to request the missing permissions, and then overriding
+            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            //                                          int[] grantResults)
+            // to handle the case where the user grants the permission. See the documentation
+            // for ActivityCompat#requestPermissions for more details.
             return;
         }
         if (bluetoothAdapter != null && bluetoothAdapter.isDiscovering()) {
             bluetoothAdapter.cancelDiscovery();
         }
     }
+
 
     private void requestBluetoothPermissions() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
@@ -225,17 +252,20 @@ public class MainActivity extends AppCompatActivity {
                 connectedDeviceName = mmDevice.getName();
                 runOnUiThread(() -> {
                     Toast.makeText(MainActivity.this, "Connected to: " + connectedDeviceName, Toast.LENGTH_SHORT).show();
-                    updateUI();
+//                    updateUI();
                 });
+
+                // Stop device discovery after successful connection
+                stopDeviceDiscovery();
 
                 startReadingData(mmSocket);
             } catch (IOException connectException) {
-                try {
-                    mmSocket.close();
-                } catch (IOException closeException) {
-                    Log.e(TAG, "Could not close the client socket", closeException);
-                }
+                // Connection attempt failed
+                handleConnectionFailure();
             }
+        }
+        private void handleConnectionFailure() {
+            runOnUiThread(() -> Toast.makeText(MainActivity.this, "Connection failed", Toast.LENGTH_SHORT).show());
         }
 
         public void cancel() {
@@ -258,7 +288,7 @@ public class MainActivity extends AppCompatActivity {
                 while (isConnected) {
                     bytes = inputStream.read(buffer);
                     String receivedData = new String(buffer, 0, bytes);
-                    runOnUiThread(() -> displayReceivedData(receivedData));
+                    runOnUiThread(() -> processReceivedData(receivedData));
                 }
             } catch (IOException e) {
                 e.printStackTrace();
@@ -266,14 +296,127 @@ public class MainActivity extends AppCompatActivity {
         }).start();
     }
 
-    private void displayReceivedData(String data) {
-        // Update your UI to display the received data
-        // For example, you can display it in a TextView
-        // receivedDataTextView.setText(data);
+    private void processReceivedData(String data) {
+        try {
+            // Trim any leading/trailing whitespace
+            data = data.trim();
+
+            // Pass the received data to analyzeLift method
+            analyzeLift(Double.parseDouble(data));
+
+            // Update received data TextView if it's not null
+            if (receivedDataTextView != null) {
+                String finalData = data;
+                runOnUiThread(() -> receivedDataTextView.setText("Received Data: " + finalData));
+            } else {
+                Log.e(TAG, "ReceivedDataTextView is null");
+            }
+
+            // Start the GoodLift activity and pass the received data
+            Intent intent = new Intent(MainActivity.this, GoodLift.class);
+            intent.putExtra("received_data", data);
+            startActivity(intent);
+        } catch (NumberFormatException e) {
+            Log.e(TAG, "Error parsing received data", e);
+        }
     }
 
-    private void updateUI() {
-        // Update UI elements based on connection status
-        // For example, you can enable/disable buttons, etc.
+
+    private void analyzeLift(double xValue) {
+        // Call the method from LiftLogic class to analyze the lift
+        double topArcAcceleration = LiftLogic.calculateTopArcAcceleration(new double[]{xValue});
+
+        // Check if the top arc acceleration is above 50
+        if (topArcAcceleration > 50) {
+            // Show "Good Lift" message for 2 seconds
+            showToastMessage("Good Lift", 2000);
+        }
     }
+
+    private void showToastMessage(String message, int duration) {
+        Toast.makeText(this, message, duration).show();
+    }
+
+    // Modify the displayReceivedData method to format the received data and update the TextView
+// Modify the displayReceivedData method to format the received data and start the GoodLift activity
+    private void displayReceivedData(String data) {
+        try {
+            // Parse the received data into an integer x value
+            int x = Integer.parseInt(data.trim()); // Trim any leading/trailing whitespace
+
+            // Add the data point to the graph
+            // Assuming you have a method to handle adding data points to the graph
+            graphDisplay.addDataPoint(x, 0); // Since y value is not provided, assuming it's 0
+
+            // Start the GoodLift activity and pass Bluetooth data
+            Intent intent = new Intent(MainActivity.this, GoodLift.class);
+            intent.putExtra("bluetooth_data", data); // Pass Bluetooth data
+            startActivity(intent);
+
+            // Update the previousX variable
+            previousX = x;
+        } catch (NumberFormatException e) {
+            Log.e(TAG, "Error parsing received data", e);
+        }
+    }
+    public static class LiftLogic {
+        private static final double ARC_THRESHOLD = 0.2; // Threshold for detecting an arc
+        private static final int TOP_PERCENT = 20; // Percentage of top acceleration values to consider
+
+        // Method to calculate the average acceleration of the top 20 percent of an arc
+        public static double calculateTopArcAcceleration(double[] accelerometerData) {
+            int dataSize = accelerometerData.length;
+            int startIndex = -1;
+            int endIndex = -1;
+
+            // Find the start and end indices of the arc
+            for (int i = 1; i < dataSize - 1; i++) {
+                double prevValue = accelerometerData[i - 1];
+                double currentValue = accelerometerData[i];
+                double nextValue = accelerometerData[i + 1];
+
+                // Check for an arc pattern (increase then decrease in acceleration within ARC_THRESHOLD seconds)
+                if (currentValue > prevValue && currentValue > nextValue &&
+                        nextValue < currentValue * (1 - ARC_THRESHOLD)) {
+                    startIndex = i;
+                    break;
+                }
+            }
+
+            if (startIndex != -1) {
+                for (int i = startIndex + 1; i < dataSize - 1; i++) {
+                    double prevValue = accelerometerData[i - 1];
+                    double currentValue = accelerometerData[i];
+                    double nextValue = accelerometerData[i + 1];
+
+                    // Check for the end of the arc pattern
+                    if (currentValue < prevValue && currentValue < nextValue &&
+                            prevValue > currentValue * (1 - ARC_THRESHOLD)) {
+                        endIndex = i;
+                        break;
+                    }
+                }
+            }
+
+            // Calculate the top 20 percent of the arc
+            if (startIndex != -1 && endIndex != -1) {
+                int arcSize = endIndex - startIndex + 1;
+                int topPercentSize = (int) Math.ceil((double) arcSize * TOP_PERCENT / 100);
+
+                double[] topValues = new double[topPercentSize];
+                System.arraycopy(accelerometerData, startIndex, topValues, 0, topPercentSize);
+
+                // Calculate the average of the top values
+                double sum = 0;
+                for (double value : topValues) {
+                    sum += value;
+                }
+                return sum / topPercentSize;
+            } else {
+                return 0; // No arc found
+            }
+        }
+    }
+
 }
+
