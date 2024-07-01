@@ -30,7 +30,9 @@
             </intent-filter>
         </activity>
         <activity android:name=".GoodLift"/>
-
+        <activity android:name=".DeviceListActivity"/>
+        <activity android:name=".GraphActivity"/>
+        <activity android:name=".RawDataActivity"/>
     </application>
 
 </manifest>

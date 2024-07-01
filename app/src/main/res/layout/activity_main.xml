@@ -9,26 +9,24 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Select Device"
-        android:layout_alignParentTop="true"
-        android:layout_centerHorizontal="true"/>
-
-    <ListView
-        android:id="@+id/deviceListView"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_below="@id/btnSelectDevice"/>
-
-    <com.jjoe64.graphview.GraphView
-        android:id="@+id/graph"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_below="@id/deviceListView"/>
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="20dp"/>
 
     <Button
-        android:id="@+id/btnBack"
+        android:id="@+id/btnViewGraph"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Back"
-        android:layout_alignParentBottom="true"
-        android:layout_centerHorizontal="true"/>
+        android:text="View Graph"
+        android:layout_below="@id/btnSelectDevice"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="20dp"/>
+
+    <Button
+        android:id="@+id/btnViewRawData"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="View Raw Data"
+        android:layout_below="@id/btnViewGraph"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="20dp"/>
 </RelativeLayout>
