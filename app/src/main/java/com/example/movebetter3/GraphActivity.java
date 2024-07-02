@@ -5,10 +5,12 @@ import android.os.Handler;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+
 import com.github.mikephil.charting.charts.LineChart;
 import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.data.LineData;
 import com.github.mikephil.charting.data.LineDataSet;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -40,13 +42,18 @@ public class GraphActivity extends AppCompatActivity {
         dataSet = new LineDataSet(entries, "X-Axis Acceleration");
         lineData = new LineData(dataSet);
         lineChart.setData(lineData);
-        inputStream = MainActivity.inputStream;
         handler = new Handler();
 
-        if (inputStream != null) {
-            beginListenForData();
-        } else {
-            Toast.makeText(this, "No Bluetooth connection", Toast.LENGTH_SHORT).show();
+        try {
+            inputStream = BluetoothService.getInstance(this).getInputStream();
+            if (inputStream != null) {
+                beginListenForData();
+            } else {
+                Toast.makeText(this, "No Bluetooth connection", Toast.LENGTH_SHORT).show();
+            }
+        } catch (Exception e) {
+            Toast.makeText(this, "Failed to get input stream", Toast.LENGTH_SHORT).show();
+            e.printStackTrace();
         }
     }
 

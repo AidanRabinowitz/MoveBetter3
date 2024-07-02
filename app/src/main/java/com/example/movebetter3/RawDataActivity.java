@@ -1,9 +1,10 @@
 package com.example.movebetter3;
 
-import android.bluetooth.BluetoothSocket;
 import android.os.Bundle;
 import android.widget.TextView;
+
 import androidx.appcompat.app.AppCompatActivity;
+
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -22,12 +23,17 @@ public class RawDataActivity extends AppCompatActivity {
         setContentView(R.layout.activity_raw_data);
 
         rawDataTextView = findViewById(R.id.rawDataTextView);
-        inputStream = MainActivity.inputStream;
 
-        if (inputStream != null) {
-            beginListenForData();
-        } else {
-            rawDataTextView.setText("No data available");
+        try {
+            inputStream = BluetoothService.getInstance(this).getInputStream();
+            if (inputStream != null) {
+                beginListenForData();
+            } else {
+                rawDataTextView.setText("No data available");
+            }
+        } catch (Exception e) {
+            rawDataTextView.setText("Failed to get input stream");
+            e.printStackTrace();
         }
     }
 
@@ -76,12 +82,5 @@ public class RawDataActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         stopWorker = true;
-        try {
-            if (inputStream != null) {
-                inputStream.close();
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
     }
 }

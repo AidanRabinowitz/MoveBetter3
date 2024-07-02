@@ -1,80 +1,66 @@
-//import android.app.Service;
-//import android.bluetooth.BluetoothAdapter;
-//import android.bluetooth.BluetoothDevice;
-//import android.bluetooth.BluetoothSocket;
-//import android.content.Intent;
-//import android.os.Binder;
-//import android.os.IBinder;
-//import android.util.Log;
-//
-//import java.io.IOException;
-//import java.io.InputStream;
-//import java.util.UUID;
-//
-//public class BluetoothService extends Service {
-//    private static final String TAG = "BluetoothService";
-//    private final IBinder binder = new LocalBinder();
-//    private BluetoothAdapter bluetoothAdapter;
-//    private BluetoothSocket bluetoothSocket;
-//    private InputStream inputStream;
-//    private boolean isConnected = false;
-//
-//    public class LocalBinder extends Binder {
-//        BluetoothService getService() {
-//            return BluetoothService.this;
-//        }
-//    }
-//
-//    @Override
-//    public IBinder onBind(Intent intent) {
-//        return binder;
-//    }
-//
-//    public void connectToDevice(String address) {
-//        BluetoothDevice device = bluetoothAdapter.getRemoteDevice(address);
-//        try {
-//            bluetoothSocket = device.createRfcommSocketToServiceRecord(UUID.fromString("00001101-0000-1000-8000-00805F9B34FB"));
-//            bluetoothSocket.connect();
-//            inputStream = bluetoothSocket.getInputStream();
-//            isConnected = true;
-//            new ReadThread().start();
-//        } catch (IOException e) {
-//            Log.e(TAG, "Unable to connect to device", e);
-//            isConnected = false;
-//        }
-//    }
-//
-//    public boolean isConnected() {
-//        return isConnected;
-//    }
-//
-//    public void disconnect() {
-//        try {
-//            if (inputStream != null) inputStream.close();
-//            if (bluetoothSocket != null) bluetoothSocket.close();
-//            isConnected = false;
-//        } catch (IOException e) {
-//            Log.e(TAG, "Unable to disconnect", e);
-//        }
-//    }
-//
-//    private class ReadThread extends Thread {
-//        @Override
-//        public void run() {
-//            byte[] buffer = new byte[1024];
-//            int bytes;
-//            while (isConnected) {
-//                try {
-//                    bytes = inputStream.read(buffer);
-//                    String data = new String(buffer, 0, bytes);
-//                    Intent intent = new Intent("BluetoothData");
-//                    intent.putExtra("data", data);
-//                    sendBroadcast(intent);
-//                } catch (IOException e) {
-//                    Log.e(TAG, "Error reading from Bluetooth device", e);
-//                    break;
-//                }
-//            }
-//        }
-//    }
-//}
+package com.example.movebetter3;
+
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothSocket;
+import android.content.Context;
+import android.content.pm.PackageManager;
+import android.widget.Toast;
+
+import androidx.core.app.ActivityCompat;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Set;
+import java.util.UUID;
+
+public class BluetoothService {
+
+    private static BluetoothService instance;
+    private BluetoothSocket bluetoothSocket;
+    private InputStream inputStream;
+    private Context context;
+
+    private BluetoothService(Context context) {
+        this.context = context.getApplicationContext(); // Use application context to avoid leaks
+    }
+
+    public static synchronized BluetoothService getInstance(Context context) {
+        if (instance == null) {
+            instance = new BluetoothService(context);
+        }
+        return instance;
+    }
+
+    public void connect(String deviceName) throws IOException {
+        BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        if (ActivityCompat.checkSelfPermission(context, android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+            // Request the missing permissions if necessary
+            return;
+        }
+        Set<BluetoothDevice> pairedDevices = bluetoothAdapter.getBondedDevices();
+
+        for (BluetoothDevice device : pairedDevices) {
+            if (device.getName().equals(deviceName)) {
+                bluetoothSocket = device.createRfcommSocketToServiceRecord(UUID.fromString("00001101-0000-1000-8000-00805F9B34FB"));
+                bluetoothSocket.connect();
+                inputStream = bluetoothSocket.getInputStream();
+                Toast.makeText(context, "Connected to " + deviceName, Toast.LENGTH_SHORT).show();
+                break;
+            }
+        }
+    }
+
+    public InputStream getInputStream() {
+        return inputStream;
+    }
+
+    public void close() throws IOException {
+        if (inputStream != null) {
+            inputStream.close();
+        }
+        if (bluetoothSocket != null) {
+            bluetoothSocket.close();
+        }
+    }
+}

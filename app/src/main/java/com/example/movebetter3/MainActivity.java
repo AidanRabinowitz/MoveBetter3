@@ -27,6 +27,8 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_ENABLE_BT = 1;
     private static final int REQUEST_CONNECT_DEVICE = 2;
     private static final UUID MY_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
+    private BluetoothService bluetoothService;
+    private String deviceName = "HC-06"; // Replace with your device name
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -38,10 +40,17 @@ public class MainActivity extends AppCompatActivity {
         Button btnViewRawData = findViewById(R.id.btnViewRawData);
 
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        bluetoothService = BluetoothService.getInstance(this);
 
         if (bluetoothAdapter == null) {
             Toast.makeText(this, "Bluetooth is not available on this device", Toast.LENGTH_LONG).show();
             finish();
+        }
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.BLUETOOTH_CONNECT}, REQUEST_ENABLE_BT);
+        } else {
+            initializeBluetooth();
         }
 
         btnSelectDevice.setOnClickListener(new View.OnClickListener() {
@@ -59,13 +68,7 @@ public class MainActivity extends AppCompatActivity {
                 startActivity(intent);
             }
         });
-        btnViewGraph.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Intent intent = new Intent(MainActivity.this, GraphActivity.class);
-                startActivity(intent);
-            }
-        });
+
         btnViewRawData.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -73,6 +76,16 @@ public class MainActivity extends AppCompatActivity {
                 startActivity(intent);
             }
         });
+    }
+
+    private void initializeBluetooth() {
+        // Establish Bluetooth connection
+        try {
+            bluetoothService.connect(deviceName);
+        } catch (IOException e) {
+            Toast.makeText(this, "Failed to connect to Bluetooth device", Toast.LENGTH_SHORT).show();
+            e.printStackTrace();
+        }
     }
 
     @Override
@@ -84,13 +97,7 @@ public class MainActivity extends AppCompatActivity {
 
             try {
                 if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                    // TODO: Consider calling
-                    //    ActivityCompat#requestPermissions
-                    // here to request the missing permissions, and then overriding
-                    //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                    //                                          int[] grantResults)
-                    // to handle the case where the user grants the permission. See the documentation
-                    // for ActivityCompat#requestPermissions for more details.
+                    ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.BLUETOOTH_CONNECT}, REQUEST_ENABLE_BT);
                     return;
                 }
                 bluetoothSocket = device.createRfcommSocketToServiceRecord(MY_UUID);
@@ -115,6 +122,19 @@ public class MainActivity extends AppCompatActivity {
             }
         } catch (IOException e) {
             e.printStackTrace();
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_ENABLE_BT) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                initializeBluetooth();
+            } else {
+                Toast.makeText(this, "Bluetooth permission is required", Toast.LENGTH_SHORT).show();
+                finish();
+            }
         }
     }
 }
